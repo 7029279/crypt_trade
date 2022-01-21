@@ -5,7 +5,7 @@ crypt coins price estimation with deep learning
 
 TODO: 
 
-＊GASでデータ用意
+＊GASでデータ用意　（進行中）
 
 ＊RNN系でニュースフィードをNLP
 
