@@ -1,0 +1,241 @@
+
+function myFunction() {
+  
+  let spreadsheet = SpreadsheetApp.openById('1X17ict12Uh90uniNBRBjG9zDE7IcCSUl6hNMVNfhgiY');
+  let sheet = spreadsheet.getSheetByName('Sheet1');
+  sec_date = new Date()
+  let date = Utilities.formatDate(sec_date, "JST", 'yyyy/MM/dd HH:mm:ss')
+
+  let ethereum_infochain = "http://ethereum-infochain.blogspot.com/feeds/posts/default?alt=rss" //http://www.w3.org/2005/Atom
+  let telegraph = "https://cointelegraph.com/rss"
+  let bitcoin_com ="https://news.bitcoin.com/feed/"
+  let coinpedia = "https://coinpedia.org/feed/"
+  let thenewscrypto = "https://thenewscrypto.com/feed/"
+  let bitcoinik = "https://bitcoinik.com/feed/"
+  let zycrypto = "https://zycrypto.com/feed/"
+  let coinquora = "https://coinquora.com/news/feed/"
+  let cryptopotato = "https://cryptopotato.com/feed"
+  let u_today = "https://u.today/rss"
+  let newsbtc_eth = "https://www.newsbtc.com/news/ethereum/feed/"
+  let newsbtc_bit = "https://www.newsbtc.com/news/bitcoin/feed/"
+  let bitcoinist = "http://bitcoinist.com/feed/"
+  let ripplecom = "https://ripple.com/insights/feed"
+  let ripplecoinnews = "https://ripplecoinnews.com/feed/"
+  let reddit_bit = "https://www.reddit.com/r/Bitcoin/new/.rss"
+  let reddit_eth = "https://www.reddit.com/r/ethereum/new/.rss"
+  let reddit_rip = "https://www.reddit.com/r/Ripple/new/.rss"
+  let reddit_xrp = "https://www.reddit.com/r/XRP/new/.rss"
+
+  let url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest'
+  let requestOptions = {
+    method: 'GET',
+    url: 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest',
+    qs: {
+      'start': '1',
+      'limit': '5000',
+      'convert': 'JPY'
+    },
+    headers: {
+      'X-CMC_PRO_API_KEY': "89f5a034-ca6b-480c-9b19-6639d8e5faa3"
+    },
+    json: true,
+    gzip: true
+    };
+  
+  let price = UrlFetchApp.fetch(url, requestOptions).getContentText();
+  json = JSON.parse(price);
+
+  bit_price = json["data"].filter(function( value ) {return value["symbol"] == 'BTC'; })[0]
+  eth_price = json["data"].filter(function( value ) {return value["symbol"] == 'ETH'; })[0]
+  rip_price = json["data"].filter(function( value ) {return value["symbol"] == 'XRP'; })[0]
+
+  let analysis = get_analysis()
+
+
+  sheet.appendRow(([
+  date, 
+  "",//JSON.stringify(json),
+  JSON.stringify(bit_price), 
+  JSON.stringify(eth_price), 
+  JSON.stringify(rip_price), 
+  JSON.stringify(get_news(telegraph, sec_date)),
+  JSON.stringify(get_news(bitcoin_com, sec_date)),
+  JSON.stringify(get_news(coinpedia, sec_date)),
+  JSON.stringify(get_news(thenewscrypto, sec_date)),
+  JSON.stringify(get_news(bitcoinik, sec_date)),
+  JSON.stringify(get_news(zycrypto, sec_date)),
+  JSON.stringify(get_news(coinquora, sec_date)),
+  JSON.stringify(get_news(cryptopotato, sec_date)),
+  JSON.stringify(get_news(u_today, sec_date)),
+
+  JSON.stringify(get_news(ethereum_infochain, sec_date)),
+  JSON.stringify(get_news(newsbtc_eth, sec_date)),
+  JSON.stringify(get_news(newsbtc_bit, sec_date)),
+  "",//JSON.stringify(get_news(bitcoinist, sec_date)),
+  JSON.stringify(get_news(ripplecom, sec_date)),
+  JSON.stringify(get_news(ripplecoinnews, sec_date)),
+  JSON.stringify(get_news(reddit_bit, sec_date)),
+  JSON.stringify(get_news(reddit_eth, sec_date)),
+  JSON.stringify(get_news(reddit_rip, sec_date)),
+  JSON.stringify(get_news(reddit_xrp, sec_date)),
+  analysis["bit_analysis"],
+  analysis["rip_analysis"],
+  analysis["eth_analysis"],
+  ]))
+}
+
+
+function get_news(channel_url, sec_date){
+  
+  let failed = false
+  let data
+  let max = 5
+
+  for (var i = 0; i < max; i++) {
+    let reponse = UrlFetchApp.fetch(channel_url, {muteHttpExceptions: true})
+    if (reponse.getResponseCode() == 200) {
+      data = reponse.getContentText();
+      break 
+    };
+    response = null;
+    Utilities.sleep(5000);
+    if (i==max-1) {
+      failed = true
+      console.log("falied")
+    }
+  }
+
+  let titles = []
+  let others = []
+  try {
+    if (failed == true) {
+      titles = []
+    }else if (data.includes("reddit")){
+      var ns = XmlService.getNamespace("http://www.w3.org/2005/Atom")
+      var xml = XmlService.parse(data).getRootElement();
+      var items = xml.getChildren('entry', ns).slice(0,20);
+      pubdate = "published" 
+      items.forEach(function(item){
+      let item_time =new Date(item.getChild(pubdate, ns).getText())
+      if (sec_date.valueOf()-item_time.valueOf() <  30*60*1000) {
+        titles.push(item.getChild("title", ns).getText())
+      } else {
+        others.push(item.getChild("title", ns).getText())
+      }
+    });
+    }else {
+      var xml = XmlService.parse(data).getRootElement();
+      var ns = XmlService.getNamespace("content", "http://purl.org/rss/1.0/modules/content/")
+      var items = xml.getChildren('channel')[0].getChildren('item').slice(0,20);
+      pubdate = "pubDate" 
+      items.forEach(function(item){
+      let item_time =new Date(item.getChild(pubdate).getText()).getTime()
+
+      if (sec_date.valueOf() - item_time.valueOf() < 30*60*1000) {
+        titles.push(item.getChild("title").getText())
+      } else {
+        others.push(item.getChild("title").getText())
+      }
+  
+  });
+  }
+  } catch (error) {
+    console.error(error);
+  }
+  return titles
+}
+
+
+function get_analysis(){
+ 
+  let bit_analysis = ""
+  let rip_analysis = ""
+  let eth_analysis = ""
+
+  let data = UrlFetchApp.fetch("https://cointelegraph.com/rss/category/top-10-cryptocurrencies").getContentText();
+  var xml = XmlService.parse(data).getRootElement();
+  var ns = XmlService.getNamespace("content", "http://purl.org/rss/1.0/modules/content/")
+  var items = xml.getChildren('channel')[0].getChildren('item');
+  pubdate = "pubDate" 
+
+  let html = "none"
+  items.forEach(function(item){
+    if (item.getChild("title").getText().includes("Price analysis")) {
+      let link = item.getChild("link").getText() 
+      console.log(link)
+      let fetch = UrlFetchApp.fetch(link, {muteHttpExceptions: true})
+      
+      if (fetch.getResponseCode() == 200) {html = Parser.data(fetch.getContentText())}
+
+        }
+      }
+    )
+
+  if (html == "none") { 
+    console.log("no analysis")
+  } else if (html.from("<body>").to("</body>").build().includes("<h2>BTC/USDT</h2>")){
+    
+    try {
+      let temp = html.from("<h2>BTC/USDT</h2>").to("<h2>").build()
+      bit_analysis = Parser.data(temp).from('<p>').to('</p>').iterate()
+      bit_analysis = remove_links(bit_analysis).join(" ") 
+      }catch (error){console.log(error)}
+  }
+   if (html.from("<body>").to("</body>").build().includes("<h2>ETH/USDT</h2>")){
+    try{
+      let temp = html.from("<h2>ETH/USDT</h2>").to("<h2>").build()
+      eth_analysis = Parser.data(temp).from('<p>').to('</p>').iterate()
+      eth_analysis = remove_links(eth_analysis).join(" ") 
+    }catch (error){console.log(error)}
+
+  }
+   if (html.from("<body>").to("</body>").build().includes("<h2>XRP/USDT</h2>")){
+    try{
+    let temp = html.from("<h2>XRP/USDT</h2>").to("<h2>").build()
+    rip_analysis = Parser.data(temp).from('<p>').to('</p>').iterate()
+    rip_analysis = remove_links(rip_analysis).join(" ")
+    }catch (error){console.log(error)}
+
+  }
+  console.log(rip_analysis)
+  console.log(eth_analysis)
+  console.log(bit_analysis)
+
+  return {"rip_analysis": rip_analysis, "eth_analysis":eth_analysis, "bit_analysis":bit_analysis}
+
+}
+
+function remove_links(paras) {
+  let new_paras = []
+  paras.forEach(
+    function(item){
+      if (item.includes("<a")){
+        item = item.replace(Parser.data(item).from("<a").to("</a>").build(), "")
+        .replace(" (<a</a>)", "")
+        .replace("<a</a>", "")
+      }
+      if (item.includes("<a")){
+        item = item.replace(Parser.data(item).from("<a").to("</a>").build(), "")
+        .replace(" (<a</a>)", "")
+        .replace("<a</a>", "")
+      }     
+      if (item.includes("<a")){
+        item = item.replace(Parser.data(item).from("<a").to("</a>").build(), "")
+        .replace(" (<a</a>)", "")
+        .replace("<a</a>", "")
+      }
+      if (item.includes("<em>")){
+        let pass
+      }else{
+        new_paras.push(item)
+      }
+    }
+  )
+  return new_paras
+}
+    
+
+
+
+
+
